@@ -1,6 +1,6 @@
 //
 //  UnfairLock.swift
-//  QuestionableConcurrency
+//  https://github.com/mochidev/swift-questionable-concurrency
 //
 //  Created by Dimitri Bouniol on 2026-04-15.
 //  Copyright © 2026 Mochi Development, Inc. All rights reserved.
