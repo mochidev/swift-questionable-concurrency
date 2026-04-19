@@ -11,47 +11,31 @@ public struct Promise<
     Success: Sendable,
     Failure: Error
 >: ~Copyable, Sendable {
-    typealias Continuation = CheckedContinuation<Success, any Error>
     
-    let name: String
-    var continuation: Continuation?
+    public let name: String
+    let continuation: DeferredContinuation<Success, Failure>
     public let future: Future<Success, Failure>
     
     public init(
-        name: String? = nil,
+        name promiseName: String? = nil,
         of successType: Success.Type = Success.self,
-        throws failureType: Failure.Type = Failure.self,
-        isolation: isolated (any Actor)? = #isolation,
-        function: String = #function
-    ) async {
-        let promiseName = name ?? "QuestionableConcurrency.Promise<\(successType), \(failureType)>"
-        self.name = promiseName
-        var task: Task<Success, any Error>?
-        continuation = await withCheckedContinuation { factoryContinuation in
-            task = Task(name: promiseName) {
-                try await withCheckedThrowingContinuation { taskContinuation in
-                    factoryContinuation.resume(returning: taskContinuation)
-                }
-            }
-        }
-        future = AsyncResult { [task] () async throws(Failure) -> Success in
-            do {
-                return try await task!.value
-            } catch {
-                throw error as! Failure
-            }
+        throws failureType: Failure.Type = Failure.self
+    ) {
+        let promiseName = promiseName ?? "QuestionableConcurrency.Promise<\(successType), \(failureType)>"
+        name = promiseName
+        continuation = DeferredContinuation(name: promiseName)
+        future = AsyncResult { [continuation] () async throws(Failure) -> Success in
+            try await continuation.value
         }
     }
     
     deinit {
-        /// If we still have a continuation, then trap at runtime since the promise was forgotten.
-        guard continuation != nil else { return }
-        fatalError("\(name) was dropped without being resumed.")
+        /// If our continuation is still pending, the promise was never resumed, so trap at runtime.
+        continuation.trapIfPending()
     }
     
     public consuming func resume(with result: sending Result<Success, Failure>) {
-        continuation!.resume(with: result)
-        continuation = nil
+        continuation.resume(with: result)
     }
 }
 
