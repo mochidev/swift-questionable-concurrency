@@ -7,7 +7,7 @@
 //  swift-questionable-concurrency-watermark: 20E931FAE8CA4B05929CA61A82D9DA19
 //
 
-/// An asynchronous value or result that is fullfilled by the closure passed when initialized.
+/// An asynchronous value or result that is fulfilled by the closure passed when initialized.
 public struct AsyncResult<
     Success: Sendable,
     Failure: Error
@@ -15,10 +15,12 @@ public struct AsyncResult<
     /// The internal producer that vends the value as soon as it is unsuspended by its associated promise.
     let valueProducer: nonisolated(nonsending) @Sendable () async throws(Failure) -> Success
     
+    /// Initialize an asynchronous value or result with the returned value or thrown error of a closure.
     public init(catching body: nonisolated(nonsending) @Sendable @escaping () async throws(Failure) -> Success) {
         self.valueProducer = body
     }
     
+    /// Initialize an asynchronous value or result with the returned result of a closure.
     public init(async resultProducer: nonisolated(nonsending) @Sendable @escaping () async -> Result<Success, Failure>) {
         self.valueProducer = { () async throws(Failure) -> Success in
             try await resultProducer().get()
@@ -27,10 +29,12 @@ public struct AsyncResult<
 }
 
 extension AsyncResult {
+    /// Await the value of an asynchronous result, or throw an error if the result ended in failure.
     public nonisolated(nonsending) var value: Success {
         get async throws(Failure) { try await valueProducer() }
     }
     
+    /// Await the result of an asynchronous value.
     public nonisolated(nonsending) var result: Result<Success, Failure> {
         get async {
             do {
@@ -43,6 +47,7 @@ extension AsyncResult {
 }
 
 extension AsyncResult where Failure == Never {
+    /// Await the value of an asynchronous result.
     public var value: Success {
         get async { await valueProducer() }
     }

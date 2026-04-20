@@ -114,7 +114,7 @@ public struct UnfairLock: ~Copyable, Sendable {
     
     /// Relinquish an unsafe lock.
     ///
-    /// A lock must only be relinguished when ``unsafeLock()`` is called, or code will fault depending on the platform it runs on.
+    /// A lock must only be relinquished when ``unsafeLock()`` is called, or code will fault depending on the platform it runs on.
     public func unsafeUnlock() { internalLock.unsafeUnlock() }
     
     /// Acquire a lock for the duration of the given block.
