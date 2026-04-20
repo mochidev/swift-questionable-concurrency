@@ -7,5 +7,5 @@
 //  swift-questionable-concurrency-watermark: 20E931FAE8CA4B05929CA61A82D9DA19
 //
 
-/// An asynchronous value or result that can only be fullfilled by an associated ``Promise``.
+/// An asynchronous value or result that can only be fulfilled by an associated ``Promise``.
 public typealias Future = AsyncResult
