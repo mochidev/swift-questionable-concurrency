@@ -56,7 +56,7 @@ import QuestionableConcurrency
 
 class MyClass: @unchecked Sendable {
     let lock: UnfairLock = UnfairLock()
-    let count: Int
+    var count: Int
     
     func updatingCount() -> Int {
         lock.withLock {
@@ -76,7 +76,7 @@ actor MyActor {
     var actorStartFuture: Future<Void, Never>
     
     init() {
-        let actorStartPromise = Promise(name: "Server Start", of: Void.self, throws: Never.self)
+        let actorStartPromise = Promise(name: "Actor Start", of: Void.self, throws: Never.self)
             actorStartFuture = actorStartPromise.future
         Task {
             actorStartPromise.resume()
@@ -93,7 +93,7 @@ actor MyActor {
 
 Swift's [Structured Concurrency](https://en.wikipedia.org/wiki/Structured_concurrency) provides plenty of primitives for writing safer and more reliable concurrent code, but provides few tools for implementing your own APIs that fit into this paradigm. `QuestionableConcurrency` fills this gap with everything you might need to properly cause the chaos your heart desires.
 
-Specifically, promises and futures can be used to reliably test concurrent code in tests, especially when different behavior can be due to timing subtle changes, while locks can be used to ensure unsafe references are properly updated without contention throwing a wrench in your dastardly plans.
+Specifically, promises and futures can be used to reliably test concurrent code in tests, especially when different behavior can be due to subtle timing variations, while locks can be used to ensure unsafe references are properly updated without contention throwing a wrench in your dastardly plans.
 
 ## Contributing
 
