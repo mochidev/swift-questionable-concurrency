@@ -8,6 +8,23 @@
 //
 
 /// An asynchronous value or result that is fulfilled by the closure passed when initialized.
+///
+/// ### Typed Throws
+///
+/// To take advantage of typed throws, you must annotate your closure accordingly, otherwise `any Error` will be used:
+///
+/// ```swift
+/// let implicitResult = AsyncResult {
+///     throw TestError()
+/// }
+/// implicitResult is AsyncResult<(), any Error> // true
+/// ```
+/// ```swift
+/// let explicitResult = AsyncResult { () throws(TestError) -> Never in
+///     throw TestError()
+/// }
+/// explicitResult is AsyncResult<Never, TestError> // true
+/// ```
 public struct AsyncResult<
     Success: Sendable,
     Failure: Error
@@ -135,6 +152,20 @@ extension AsyncResult where Failure == Never {
     /// Await the value of an asynchronous result.
     public var value: Success {
         get async { await valueProducer() }
+    }
+}
+
+extension AsyncResult where Success == Void {
+    /// Suspend the current task until the async result is fulfilled.
+    public func yield() async throws(Failure) {
+        try await value
+    }
+}
+
+extension AsyncResult where Success == Void, Failure == Never {
+    /// Suspend the current task until the async result is fulfilled.
+    public func yield() async {
+        await value
     }
 }
 
