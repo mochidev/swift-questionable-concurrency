@@ -61,6 +61,108 @@ public struct Promise<
     }
 }
 
+extension Promise where Success == Void {
+    /// Initialize a new promise whose value can be yielded later.
+    /// - SeeAlso: ``Promise``
+    /// - Parameters:
+    ///   - promiseName: A name to assign to the promise to track when it is misused.
+    ///   - successType: The success type for the promise.
+    ///   - failureType: The failure type for the promise.
+    public init(
+        name promiseName: String? = nil,
+        throws failureType: Failure.Type = Failure.self
+    ) {
+        self.init(name: promiseName, of: Void.self, throws: failureType)
+    }
+}
+
+extension Promise where Success == Never {
+    /// Initialize a new always-throwing promise whose value can be read later.
+    /// - SeeAlso: ``Promise``
+    /// - Parameters:
+    ///   - promiseName: A name to assign to the promise to track when it is misused.
+    ///   - successType: The success type for the promise.
+    ///   - failureType: The failure type for the promise.
+    public init(
+        name promiseName: String? = nil,
+        alwaysThrows failureType: Failure.Type = Failure.self
+    ) {
+        self.init(name: promiseName, of: Never.self, throws: failureType)
+    }
+}
+
+extension Promise where Failure == Never {
+    /// Initialize a new never-failing promise whose value can be read later.
+    /// - SeeAlso: ``Promise``
+    /// - Parameters:
+    ///   - promiseName: A name to assign to the promise to track when it is misused.
+    ///   - successType: The success type for the promise.
+    ///   - failureType: The failure type for the promise.
+    public init(
+        name promiseName: String? = nil,
+        of successType: Success.Type = Success.self
+    ) {
+        self.init(name: promiseName, of: successType, throws: Never.self)
+    }
+}
+
+extension Promise where Success == Void, Failure == Never {
+    /// Initialize a new never-failing promise whose value can be read later.
+    /// - SeeAlso: ``Promise``
+    /// - Parameters:
+    ///   - promiseName: A name to assign to the promise to track when it is misused.
+    ///   - successType: The success type for the promise.
+    ///   - failureType: The failure type for the promise.
+    public init(
+        name promiseName: String? = nil
+    ) {
+        self.init(name: promiseName, of: Void.self, throws: Never.self)
+    }
+}
+
+extension Promise where Failure == any Error {
+    /// Initialize a new throwing promise whose value can be read later.
+    /// - SeeAlso: ``Promise``
+    /// - Parameters:
+    ///   - promiseName: A name to assign to the promise to track when it is misused.
+    ///   - successType: The success type for the promise.
+    ///   - failureType: The failure type for the promise.
+    public static func throwing(
+        name promiseName: String? = nil,
+        of successType: Success.Type = Success.self
+    ) -> Self {
+        self.init(name: promiseName, of: successType, throws: (any Error).self)
+    }
+}
+
+extension Promise where Success == Void, Failure == any Error {
+    /// Initialize a new throwing promise whose value can be yielded later.
+    /// - SeeAlso: ``Promise``
+    /// - Parameters:
+    ///   - promiseName: A name to assign to the promise to track when it is misused.
+    ///   - successType: The success type for the promise.
+    ///   - failureType: The failure type for the promise.
+    public static func throwing(
+        name promiseName: String? = nil
+    ) -> Self {
+        self.init(name: promiseName, of: Void.self, throws: (any Error).self)
+    }
+}
+
+extension Promise where Success == Never, Failure == any Error {
+    /// Initialize a new always-throwing promise whose value can be yielded later.
+    /// - SeeAlso: ``Promise``
+    /// - Parameters:
+    ///   - promiseName: A name to assign to the promise to track when it is misused.
+    ///   - successType: The success type for the promise.
+    ///   - failureType: The failure type for the promise.
+    public static func alwaysThrowing(
+        name promiseName: String? = nil
+    ) -> Self {
+        self.init(name: promiseName, of: Never.self, throws: (any Error).self)
+    }
+}
+
 extension Promise {
     /// Fulfill a promise by resuming it with a successful value.
     /// - Parameter result: The value that should be returned when ``future``'s ``AsyncResult/value-5r346`` is awaited.
