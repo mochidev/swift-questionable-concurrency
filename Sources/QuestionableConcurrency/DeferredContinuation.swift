@@ -124,3 +124,105 @@ public actor DeferredContinuation<
         }
     }
 }
+
+extension DeferredContinuation where Success == Void {
+    /// Initialize a new deferred continuation whose value can be yielded later.
+    /// - SeeAlso: ``DeferredContinuation``
+    /// - Parameters:
+    ///   - continuationName: A name to assign to the continuation to track when it is misused.
+    ///   - successType: The success type for the continuation.
+    ///   - failureType: The failure type for the continuation.
+    public init(
+        name continuationName: String? = nil,
+        throws failureType: Failure.Type = Failure.self
+    ) {
+        self.init(name: continuationName, of: Void.self, throws: failureType)
+    }
+}
+
+extension DeferredContinuation where Success == Never {
+    /// Initialize a new always-throwing deferred continuation whose value can be read later.
+    /// - SeeAlso: ``DeferredContinuation``
+    /// - Parameters:
+    ///   - continuationName: A name to assign to the continuation to track when it is misused.
+    ///   - successType: The success type for the continuation.
+    ///   - failureType: The failure type for the continuation.
+    public init(
+        name continuationName: String? = nil,
+        alwaysThrows failureType: Failure.Type = Failure.self
+    ) {
+        self.init(name: continuationName, of: Never.self, throws: failureType)
+    }
+}
+
+extension DeferredContinuation where Failure == Never {
+    /// Initialize a new never-failing deferred continuation whose value can be read later.
+    /// - SeeAlso: ``DeferredContinuation``
+    /// - Parameters:
+    ///   - continuationName: A name to assign to the continuation to track when it is misused.
+    ///   - successType: The success type for the continuation.
+    ///   - failureType: The failure type for the continuation.
+    public init(
+        name continuationName: String? = nil,
+        of successType: Success.Type = Success.self
+    ) {
+        self.init(name: continuationName, of: successType, throws: Never.self)
+    }
+}
+
+extension DeferredContinuation where Success == Void, Failure == Never {
+    /// Initialize a new never-failing deferred continuation whose value can be read later.
+    /// - SeeAlso: ``DeferredContinuation``
+    /// - Parameters:
+    ///   - continuationName: A name to assign to the continuation to track when it is misused.
+    ///   - successType: The success type for the continuation.
+    ///   - failureType: The failure type for the continuation.
+    public init(
+        name continuationName: String? = nil
+    ) {
+        self.init(name: continuationName, of: Void.self, throws: Never.self)
+    }
+}
+
+extension DeferredContinuation where Failure == any Error {
+    /// Initialize a new throwing deferred continuation whose value can be read later.
+    /// - SeeAlso: ``DeferredContinuation``
+    /// - Parameters:
+    ///   - continuationName: A name to assign to the continuation to track when it is misused.
+    ///   - successType: The success type for the continuation.
+    ///   - failureType: The failure type for the continuation.
+    public static func throwing(
+        name continuationName: String? = nil,
+        of successType: Success.Type = Success.self
+    ) -> Self {
+        self.init(name: continuationName, of: successType, throws: (any Error).self)
+    }
+}
+
+extension DeferredContinuation where Success == Void, Failure == any Error {
+    /// Initialize a new throwing deferred continuation whose value can be yielded later.
+    /// - SeeAlso: ``DeferredContinuation``
+    /// - Parameters:
+    ///   - continuationName: A name to assign to the continuation to track when it is misused.
+    ///   - successType: The success type for the continuation.
+    ///   - failureType: The failure type for the continuation.
+    public static func throwing(
+        name continuationName: String? = nil
+    ) -> Self {
+        self.init(name: continuationName, of: Void.self, throws: (any Error).self)
+    }
+}
+
+extension DeferredContinuation where Success == Never, Failure == any Error {
+    /// Initialize a new always-throwing deferred continuation whose value can be yielded later.
+    /// - SeeAlso: ``DeferredContinuation``
+    /// - Parameters:
+    ///   - continuationName: A name to assign to the continuation to track when it is misused.
+    ///   - successType: The success type for the continuation.
+    ///   - failureType: The failure type for the continuation.
+    public static func alwaysThrowing(
+        name continuationName: String? = nil
+    ) -> Self {
+        self.init(name: continuationName, of: Never.self, throws: (any Error).self)
+    }
+}
