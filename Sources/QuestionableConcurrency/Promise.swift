@@ -45,9 +45,7 @@ public struct Promise<
         let promiseName = promiseName ?? "QuestionableConcurrency.Promise<\(successType), \(failureType)>"
         name = promiseName
         continuation = DeferredContinuation(name: promiseName)
-        future = AsyncResult { [continuation] () async throws(Failure) -> Success in
-            try await continuation.value
-        }
+        future = continuation.future
     }
     
     /// A promise expires after its creating scope concludes, and will trap if it hasn't been resumed.
