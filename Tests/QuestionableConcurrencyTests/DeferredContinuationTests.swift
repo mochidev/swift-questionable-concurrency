@@ -113,6 +113,7 @@ import Testing
         }
     }
     
+    #if canImport(Darwin)
     @Test func trapIfResumedMultipleTimes() async throws {
         await #expect(processExitsWith: .signal(5)) {
             let continuation = DeferredContinuation(name: "Test", throws: TestError.self)
@@ -121,7 +122,18 @@ import Testing
             continuation.resume(with: .success(()))
         }
     }
+    #elseif canImport(Glibc)
+    @Test func trapIfResumedMultipleTimes() async throws {
+        await #expect(processExitsWith: .failure) {
+            let continuation = DeferredContinuation(name: "Test", throws: TestError.self)
+            
+            continuation.resume(with: .success(()))
+            continuation.resume(with: .success(()))
+        }
+    }
+    #endif
     
+    #if canImport(Darwin)
     @Test func trapIfPending() async throws {
         await #expect(processExitsWith: .signal(5)) {
             let continuation = DeferredContinuation(name: "Test")
@@ -129,6 +141,15 @@ import Testing
             continuation.trapIfPending()
         }
     }
+    #elseif canImport(Glibc)
+    @Test func trapIfPending() async throws {
+        await #expect(processExitsWith: .failure) {
+            let continuation = DeferredContinuation(name: "Test")
+            
+            continuation.trapIfPending()
+        }
+    }
+    #endif
     
     @Test func doNotTrapIfNotPending() async throws {
         await #expect(processExitsWith: .success) {

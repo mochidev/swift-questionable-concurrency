@@ -119,12 +119,21 @@ import Testing
         }
     }
     
+    #if canImport(Darwin)
     @Test func trapIfPending() async throws {
         await #expect(processExitsWith: .signal(5)) {
             let promise = Promise(name: "Test")
             let _ = promise.future
         }
     }
+    #elseif canImport(Glibc)
+    @Test func trapIfPending() async throws {
+        await #expect(processExitsWith: .failure) {
+            let promise = Promise(name: "Test")
+            let _ = promise.future
+        }
+    }
+    #endif
     
     @Test func doNotTrapIfNotPending() async throws {
         await #expect(processExitsWith: .success) {

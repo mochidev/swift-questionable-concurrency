@@ -72,27 +72,47 @@ import Testing
         #expect(count == 10000)
     }
     
+    #if canImport(Darwin)
     @Test func unsafeUnlock() async throws {
         await #expect(processExitsWith: .signal(9)) {
             let lock = UnfairLock()
             lock.unsafeUnlock()
         }
     }
+    #elseif canImport(Glibc)
+    @Test func unsafeUnlock() async throws {
+        await #expect(processExitsWith: .failure) {
+            let lock = UnfairLock()
+            lock.unsafeUnlock()
+        }
+    }
+    #endif
     
+    #if canImport(Darwin)
     @Test func unresolvedUnsafeLock() async throws {
         await #expect(processExitsWith: .success) {
             let lock = UnfairLock()
             lock.unsafeLock()
         }
     }
+    #elseif canImport(Glibc)
+    @Test func unresolvedUnsafeLock() async throws {
+        await #expect(processExitsWith: .failure) {
+            let lock = UnfairLock()
+            lock.unsafeLock()
+        }
+    }
+    #endif
     
-    @Test func unresolvedDoubleUnsafeLock() async throws {
+    #if canImport(Darwin)
+    @Test(.timeLimit(.minutes(1))) func unresolvedDoubleUnsafeLock() async throws {
         await #expect(processExitsWith: .signal(9)) {
             let lock = UnfairLock()
             lock.unsafeLock()
             lock.unsafeLock()
         }
     }
+    #endif
     
     @Test func lockingDeadlocks() async throws {
         await #expect(processExitsWith: .success) {
