@@ -13,7 +13,7 @@
 ///
 /// ## Comparison with Standard Types
 ///
-/// Unlike ``/Concurrency/CheckedContinuation`` and ``/Concurrency/UnsafeContinuation``, ``DeferredContinuation`` can be initialized anywhere, and its ``value`` can be awaited at any time. Similarly to the standard library types, a continuation _must_ be resumed exactly once using ``resume(with:)``.
+/// Unlike ``/Concurrency/CheckedContinuation`` and ``/Concurrency/UnsafeContinuation``, ``DeferredContinuation`` can be initialized anywhere, and its ``future`` can be awaited at any time. Similarly to the standard library types, a continuation _must_ be resumed exactly once using ``resume(with:)``.
 ///
 /// In `DEBUG` builds, a ``/Concurrency/CheckedContinuation`` will be used internally to suspend the current task when a value is read. In `RELEASE` builds, a ``/Concurrency/UnsafeContinuation`` will be used instead.
 ///
@@ -77,7 +77,7 @@ public actor DeferredContinuation<
     ///
     /// - Warning: A continuation must be resumed _exactly_ once. If a continuation is resumed a second time, it'll immediately trap at runtime.
     /// - SeeAlso: The ``name`` assigned to the continuation.
-    /// - Parameter result: The result that should be returned when ``value`` is read.
+    /// - Parameter result: The result that should be returned when ``future`` is read.
     public nonisolated func resume(with result: sending Result<Success, Failure>) {
         let continuations = lock.withLock {
             switch state {
@@ -93,11 +93,11 @@ public actor DeferredContinuation<
         }
     }
     
-    /// The value that the continuation is resumed with, or a thrown error if it was resumed with a failure.
+    /// The future value associated with the continuation.
     ///
     /// If the continuation has been fulfilled, the value is immediately available without suspending.
-    public nonisolated(nonsending) var value: Success {
-        get async throws(Failure) {
+    public nonisolated var future: Future<Success, Failure> {
+        AsyncResult.cached { [self] () async throws(Failure) -> Success in
             /// Lock around reading and updating state across the continuation boundary.
             lock.unsafeLock()
             switch state {
