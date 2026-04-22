@@ -36,6 +36,44 @@ extension AsyncResult {
             try await resultProducer().get()
         }
     }
+    
+    /// Initialize an asynchronous value or result with a synchronous ``/Swift/Result``.
+    ///
+    /// - SeeAlso: ``AsyncResult``
+    /// - Parameter result: The result to wrap.
+    public init(_ result: Result<Success, Failure>) {
+        self.init { () throws(Failure) -> Success in
+            try result.get()
+        }
+    }
+    
+    /// A success, storing a `Success` value.
+    /// - SeeAlso: ``AsyncResult``
+    public static func success(_ value: Success) -> Self {
+        AsyncResult(.success(value))
+    }
+    
+    /// A failure, storing a `Failure` value.
+    /// - SeeAlso: ``AsyncResult``
+    public static func failure(_ error: Failure) -> Self {
+        AsyncResult(.failure(error))
+    }
+}
+
+extension AsyncResult where Failure == Never {
+    /// A success, storing a `Success` value.
+    /// - SeeAlso: ``AsyncResult``
+    public static func success(_ value: Success) -> Self {
+        AsyncResult(.success(value))
+    }
+}
+
+extension AsyncResult where Success == Never {
+    /// A failure, storing a `Failure` value.
+    /// - SeeAlso: ``AsyncResult`` 
+    public static func failure(_ error: Failure) -> Self {
+        AsyncResult(.failure(error))
+    }
 }
 
 extension AsyncResult {
