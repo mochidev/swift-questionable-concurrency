@@ -30,7 +30,7 @@ dependencies: [
     ...
     .package(
         url: "https://github.com/mochidev/swift-questionable-concurrency.git", 
-        .upToNextMinor(from: "0.1.1")
+        .upToNextMinor(from: "0.2.0")
     ), // <- Declare the dependency here.
     ...
 ],
