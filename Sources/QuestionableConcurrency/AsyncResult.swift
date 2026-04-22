@@ -16,13 +16,56 @@ public struct AsyncResult<
     let valueProducer: nonisolated(nonsending) @Sendable () async throws(Failure) -> Success
     
     /// Initialize an asynchronous value or result with the returned value or thrown error of a closure.
+    ///
+    /// - Important: If a task reading a ``value-5r346`` is cancelled, cancellation will propagate into the `body` block provided here for that read operation.
+    /// - SeeAlso: ``AsyncResult``
+    /// - Parameter body: The asynchronous closure that either returns a successful value, or throws an error that will be captured.
     public init(catching body: nonisolated(nonsending) @Sendable @escaping () async throws(Failure) -> Success) {
         self.valueProducer = body
     }
-    
+}
+
+extension AsyncResult {
     /// Initialize an asynchronous value or result with the returned result of a closure.
+    ///
+    /// - Important: If a task reading a ``value-5r346`` is cancelled, cancellation will propagate into the `resultProducer` block provided here for that read operation.
+    /// - SeeAlso: ``AsyncResult``
+    /// - Parameter resultProducer: The closure that asynchronously returns a result.
     public init(async resultProducer: nonisolated(nonsending) @Sendable @escaping () async -> Result<Success, Failure>) {
-        self.valueProducer = { () async throws(Failure) -> Success in
+        self.init { () async throws(Failure) -> Success in
+            try await resultProducer().get()
+        }
+    }
+}
+
+extension AsyncResult {
+    /// Initialize an asynchronous value or result with the returned value or thrown error of a closure, and immediately start caching the results.
+    ///
+    /// This variation may be useful when you don't want to hold a reference to the `body` closure being passed in.
+    ///
+    /// - Important: Unlike ``init(catching:)``, cancelling a task while reading ``value-5r346`` will **not** propagate into the `body` block provided here.
+    /// - SeeAlso: ``AsyncResult``
+    /// - Parameter body: The asynchronous closure that either returns a successful value, or throws an error that will be captured.
+    public static func cached(catching body: nonisolated(nonsending) @Sendable @escaping () async throws(Failure) -> Success) -> Self {
+        let task = Task { try await body() }
+        return .init { () async throws(Failure) -> Success in
+            do {
+                return try await task.value
+            } catch {
+                throw error as! Failure
+            }
+        }
+    }
+    
+    /// Initialize an asynchronous value or result with the returned value or thrown error of a closure, and immediately start caching the results.
+    ///
+    /// This variation may be useful when you don't want to hold a reference to the `body` closure being passed in.
+    ///
+    /// - Important: Unlike ``init(catching:)``, cancelling a task while reading ``value-5r346`` will **not** propagate into the `resultProducer` block provided here.
+    /// - SeeAlso: ``AsyncResult``
+    /// - Parameter resultProducer: The closure that asynchronously returns a result.
+    public static func cached(async resultProducer: nonisolated(nonsending) @Sendable @escaping () async -> Result<Success, Failure>) -> Self {
+        self.cached { () async throws(Failure) -> Success in
             try await resultProducer().get()
         }
     }
@@ -30,11 +73,15 @@ public struct AsyncResult<
 
 extension AsyncResult {
     /// Await the value of an asynchronous result, or throw an error if the result ended in failure.
+    ///
+    /// If the result has been fulfilled, the value is immediately available without suspending.
     public nonisolated(nonsending) var value: Success {
         get async throws(Failure) { try await valueProducer() }
     }
     
     /// Await the result of an asynchronous value.
+    ///
+    /// If the result has been fulfilled, the result is immediately available without suspending.
     public nonisolated(nonsending) var result: Result<Success, Failure> {
         get async {
             do {
