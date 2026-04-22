@@ -38,7 +38,7 @@ public actor DeferredContinuation<
     }
     
     /// The name of the continuation for debugging purposes.
-    public let name: String
+    nonisolated public let name: String
     
     /// The internal lock for maintaining exclusive access to changes to ``state``.
     let lock: UnfairLock = UnfairLock()
