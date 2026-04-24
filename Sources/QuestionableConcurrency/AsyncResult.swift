@@ -30,16 +30,26 @@ public struct AsyncResult<
     Failure: Error
 >: Sendable {
     /// The internal producer that vends the value as soon as it is unsuspended by its associated promise.
+    #if compiler(>=6.2)
     let valueProducer: nonisolated(nonsending) @Sendable () async throws(Failure) -> Success
+    #else
+    let valueProducer: @Sendable () async throws(Failure) -> Success
+    #endif
     
     /// Initialize an asynchronous value or result with the returned value or thrown error of a closure.
     ///
     /// - Important: If a task reading a ``value-5r346`` is cancelled, cancellation will propagate into the `body` block provided here for that read operation.
     /// - SeeAlso: ``AsyncResult``
     /// - Parameter body: The asynchronous closure that either returns a successful value, or throws an error that will be captured.
+    #if compiler(>=6.2)
     public init(catching body: nonisolated(nonsending) @Sendable @escaping () async throws(Failure) -> Success) {
         self.valueProducer = body
     }
+    #else
+    public init(catching body: @Sendable @escaping () async throws(Failure) -> Success) {
+        self.valueProducer = body
+    }
+    #endif
 }
 
 extension AsyncResult {
@@ -48,11 +58,19 @@ extension AsyncResult {
     /// - Important: If a task reading a ``value-5r346`` is cancelled, cancellation will propagate into the `resultProducer` block provided here for that read operation.
     /// - SeeAlso: ``AsyncResult``
     /// - Parameter resultProducer: The closure that asynchronously returns a result.
+    #if compiler(>=6.2)
     public init(async resultProducer: nonisolated(nonsending) @Sendable @escaping () async -> Result<Success, Failure>) {
         self.init { () async throws(Failure) -> Success in
             try await resultProducer().get()
         }
     }
+    #else
+    public init(async resultProducer: @Sendable @escaping () async -> Result<Success, Failure>) {
+        self.init { () async throws(Failure) -> Success in
+            try await resultProducer().get()
+        }
+    }
+    #endif
     
     /// Initialize an asynchronous value or result with a synchronous ``/Swift/Result``.
     ///
@@ -101,6 +119,7 @@ extension AsyncResult {
     /// - Important: Unlike ``init(catching:)``, cancelling a task while reading ``value-5r346`` will **not** propagate into the `body` block provided here.
     /// - SeeAlso: ``AsyncResult``
     /// - Parameter body: The asynchronous closure that either returns a successful value, or throws an error that will be captured.
+    #if compiler(>=6.2)
     public static func cached(catching body: nonisolated(nonsending) @Sendable @escaping () async throws(Failure) -> Success) -> Self {
         let task = Task { try await body() }
         return .init { () async throws(Failure) -> Success in
@@ -111,6 +130,18 @@ extension AsyncResult {
             }
         }
     }
+    #else
+    public static func cached(catching body: @Sendable @escaping () async throws(Failure) -> Success) -> Self {
+        let task = Task { try await body() }
+        return .init { () async throws(Failure) -> Success in
+            do {
+                return try await task.value
+            } catch {
+                throw error as! Failure
+            }
+        }
+    }
+    #endif
     
     /// Initialize an asynchronous value or result with the returned value or thrown error of a closure, and immediately start caching the results.
     ///
@@ -119,24 +150,39 @@ extension AsyncResult {
     /// - Important: Unlike ``init(catching:)``, cancelling a task while reading ``value-5r346`` will **not** propagate into the `resultProducer` block provided here.
     /// - SeeAlso: ``AsyncResult``
     /// - Parameter resultProducer: The closure that asynchronously returns a result.
+    #if compiler(>=6.2)
     public static func cached(async resultProducer: nonisolated(nonsending) @Sendable @escaping () async -> Result<Success, Failure>) -> Self {
         self.cached { () async throws(Failure) -> Success in
             try await resultProducer().get()
         }
     }
+    #else
+    public static func cached(async resultProducer: @Sendable @escaping () async -> Result<Success, Failure>) -> Self {
+        self.cached { () async throws(Failure) -> Success in
+            try await resultProducer().get()
+        }
+    }
+    #endif
 }
 
 extension AsyncResult {
     /// Await the value of an asynchronous result, or throw an error if the result ended in failure.
     ///
     /// If the result has been fulfilled, the value is immediately available without suspending.
+    #if compiler(>=6.2)
     public nonisolated(nonsending) var value: Success {
         get async throws(Failure) { try await valueProducer() }
     }
+    #else
+    public nonisolated var value: Success {
+        get async throws(Failure) { try await valueProducer() }
+    }
+    #endif
     
     /// Await the result of an asynchronous value.
     ///
     /// If the result has been fulfilled, the result is immediately available without suspending.
+    #if compiler(>=6.2)
     public nonisolated(nonsending) var result: Result<Success, Failure> {
         get async {
             do {
@@ -146,6 +192,17 @@ extension AsyncResult {
             }
         }
     }
+    #else
+    public nonisolated var result: Result<Success, Failure> {
+        get async {
+            do {
+                return .success(try await value)
+            } catch {
+                return .failure(error)
+            }
+        }
+    }
+    #endif
 }
 
 extension AsyncResult where Failure == Never {
@@ -171,6 +228,7 @@ extension AsyncResult where Success == Void, Failure == Never {
 
 extension AsyncResult {
     /// Map the value of a successful result to a new value asynchronously.
+    #if compiler(>=6.2)
     public func map<NewSuccess>(
         _ transform: nonisolated(nonsending) @Sendable @escaping (Success) async -> NewSuccess
     ) -> AsyncResult<NewSuccess, Failure> {
@@ -179,8 +237,19 @@ extension AsyncResult {
             return await transform(value)
         }
     }
+    #else
+    public func map<NewSuccess>(
+        _ transform: @Sendable @escaping (Success) async -> NewSuccess
+    ) -> AsyncResult<NewSuccess, Failure> {
+        AsyncResult<NewSuccess, Failure> { () async throws(Failure) -> NewSuccess in
+            let value = try await value
+            return await transform(value)
+        }
+    }
+    #endif
     
     /// Map the value of a successful result to a new result asynchronously.
+    #if compiler(>=6.2)
     public func flatMap<NewSuccess>(
         _ transform: nonisolated(nonsending) @Sendable @escaping (Success) async -> Result<NewSuccess, Failure>
     ) -> AsyncResult<NewSuccess, Failure> {
@@ -193,8 +262,23 @@ extension AsyncResult {
             }
         })
     }
+    #else
+    public func flatMap<NewSuccess>(
+        _ transform: @Sendable @escaping (Success) async -> Result<NewSuccess, Failure>
+    ) -> AsyncResult<NewSuccess, Failure> {
+        AsyncResult<NewSuccess, Failure>(async: { () async -> Result<NewSuccess, Failure> in
+            do throws(Failure) {
+                let value = try await value
+                return await transform(value)
+            } catch {
+                return .failure(error)
+            }
+        })
+    }
+    #endif
     
     /// Map the result to a new result asynchronously.
+    #if compiler(>=6.2)
     public func mapResult<NewSuccess, NewFailure>(
         _ transform: nonisolated(nonsending) @Sendable @escaping (Result<Success, Failure>) async -> Result<NewSuccess, NewFailure>
     ) -> AsyncResult<NewSuccess, NewFailure> {
@@ -202,8 +286,18 @@ extension AsyncResult {
             await transform(result)
         }
     }
+    #else
+    public func mapResult<NewSuccess, NewFailure>(
+        _ transform: @Sendable @escaping (Result<Success, Failure>) async -> Result<NewSuccess, NewFailure>
+    ) -> AsyncResult<NewSuccess, NewFailure> {
+        AsyncResult<NewSuccess, NewFailure> {
+            await transform(result)
+        }
+    }
+    #endif
     
     /// Map the error of a failing result to a new error asynchronously.
+    #if compiler(>=6.2)
     public func mapError<NewFailure>(
         _ transform: nonisolated(nonsending) @Sendable @escaping (Failure) async -> NewFailure
     ) -> AsyncResult<Success, NewFailure> {
@@ -215,8 +309,22 @@ extension AsyncResult {
             }
         }
     }
+    #else
+    public func mapError<NewFailure>(
+        _ transform: @Sendable @escaping (Failure) async -> NewFailure
+    ) -> AsyncResult<Success, NewFailure> {
+        AsyncResult<Success, NewFailure> { () async throws(NewFailure) -> Success in
+            do throws(Failure) {
+                return try await value
+            } catch {
+                throw await transform(error)
+            }
+        }
+    }
+    #endif
     
     /// Map the error of a failing result to a new result asynchronously.
+    #if compiler(>=6.2)
     public func flatMapError<NewFailure>(
         _ transform: nonisolated(nonsending) @Sendable @escaping (Failure) async -> Result<Success, NewFailure>
     ) -> AsyncResult<Success, NewFailure> {
@@ -228,4 +336,17 @@ extension AsyncResult {
             }
         })
     }
+    #else
+    public func flatMapError<NewFailure>(
+        _ transform: @Sendable @escaping (Failure) async -> Result<Success, NewFailure>
+    ) -> AsyncResult<Success, NewFailure> {
+        AsyncResult<Success, NewFailure>(async: { () async -> Result<Success, NewFailure> in
+            do throws(Failure) {
+                return .success(try await value)
+            } catch {
+                return await transform(error)
+            }
+        })
+    }
+    #endif
 }
