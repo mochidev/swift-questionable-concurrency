@@ -56,9 +56,15 @@ public struct Promise<
     
     /// Fulfill a promise by resuming it with a result.
     /// - Parameter result: The result that should be returned when ``future``'s ``AsyncResult/value-5r346`` is awaited.
+    #if compiler(>=6.0)
     public consuming func resume(with result: sending Result<Success, Failure>) {
         continuation.resume(with: result)
     }
+    #else
+    public consuming func resume(with result: Result<Success, Failure>) {
+        continuation.resume(with: result)
+    }
+    #endif
 }
 
 extension Promise where Success == Void {
@@ -166,9 +172,15 @@ extension Promise where Success == Never, Failure == any Error {
 extension Promise {
     /// Fulfill a promise by resuming it with a successful value.
     /// - Parameter result: The value that should be returned when ``future``'s ``AsyncResult/value-5r346`` is awaited.
+    #if compiler(>=6.0)
     public consuming func resume(returning value: sending Success) {
         resume(with: .success(value))
     }
+    #else
+    public consuming func resume(returning value: Success) {
+        resume(with: .success(value))
+    }
+    #endif
     
     /// Fulfill a promise by resuming it with a failing error.
     /// - Parameter result: The error that should be thrown when ``future``'s ``AsyncResult/value-5r346`` is awaited.
@@ -178,9 +190,15 @@ extension Promise {
     
     /// Fulfill a promise by resuming it with a result.
     /// - Parameter result: The result that should be returned when ``future``'s ``AsyncResult/result`` is awaited.
+    #if compiler(>=6.0)
     public consuming func resume<LocalFailure>(with result: sending Result<Success, LocalFailure>) where Failure == any Error, LocalFailure: Error {
         resume(with: result.mapError { $0 as Failure })
     }
+    #else
+    public consuming func resume<LocalFailure>(with result: Result<Success, LocalFailure>) where Failure == any Error, LocalFailure: Error {
+        resume(with: result.mapError { $0 as Failure })
+    }
+    #endif
     
     /// Fulfill a promise by resuming it.
     /// - Parameter result: Un-suspend any tasks awaiting ``future``'s ``AsyncResult/value``.
