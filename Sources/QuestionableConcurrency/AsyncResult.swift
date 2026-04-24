@@ -299,7 +299,68 @@ extension AsyncResult where Success == Void, Failure == Never {
     }
 }
 
-#if compiler(<5.10) || compiler(>=6.0) /// There's an issue compiling the following on Swift 5.10.1 for some unknown reason…
+#if compiler(<6.0)
+extension AsyncResult {
+    /// Map the value of a successful result to a new value asynchronously.
+    public func map<NewSuccess>(
+        _ transform: @Sendable @escaping (Success) async -> NewSuccess
+    ) -> AsyncResult<NewSuccess, Failure> {
+        AsyncResult<NewSuccess, Failure> {
+            let value = try await value
+            return await transform(value)
+        }
+    }
+    
+    /// Map the value of a successful result to a new result asynchronously.
+    public func flatMap<NewSuccess>(
+        _ transform: @Sendable @escaping (Success) async -> Result<NewSuccess, Failure>
+    ) -> AsyncResult<NewSuccess, Failure> {
+        AsyncResult<NewSuccess, Failure>(async: {
+            do {
+                let value = try await value
+                return await transform(value)
+            } catch {
+                return .failure(error as! Failure)
+            }
+        })
+    }
+    
+    /// Map the result to a new result asynchronously.
+    public func mapResult<NewSuccess, NewFailure>(
+        _ transform: @Sendable @escaping (Result<Success, Failure>) async -> Result<NewSuccess, NewFailure>
+    ) -> AsyncResult<NewSuccess, NewFailure> {
+        AsyncResult<NewSuccess, NewFailure> {
+            await transform(result)
+        }
+    }
+    
+    /// Map the error of a failing result to a new error asynchronously.
+    public func mapError<NewFailure>(
+        _ transform: @Sendable @escaping (Failure) async -> NewFailure
+    ) -> AsyncResult<Success, NewFailure> {
+        AsyncResult<Success, NewFailure> {
+            do {
+                return .success(try await value)
+            } catch {
+                return .failure(await transform(error as! Failure))
+            }
+        }
+    }
+    
+    /// Map the error of a failing result to a new result asynchronously.
+    public func flatMapError<NewFailure>(
+        _ transform: @Sendable @escaping (Failure) async -> Result<Success, NewFailure>
+    ) -> AsyncResult<Success, NewFailure> {
+        AsyncResult<Success, NewFailure>(async: {
+            do {
+                return .success(try await value)
+            } catch {
+                return await transform(error as! Failure)
+            }
+        })
+    }
+}
+#else/// There's an issue compiling the following on Swift 5.10.1 for some unknown reason…
 extension AsyncResult {
     /// Map the value of a successful result to a new value asynchronously.
     #if compiler(>=6.2)
@@ -311,20 +372,11 @@ extension AsyncResult {
             return await transform(value)
         }
     }
-    #elseif compiler(>=6.0)
-    public func map<NewSuccess>(
-        _ transform: @Sendable @escaping (Success) async -> NewSuccess
-    ) -> AsyncResult<NewSuccess, Failure> {
-        AsyncResult<NewSuccess, Failure> { () async throws(Failure) -> NewSuccess in
-            let value = try await value
-            return await transform(value)
-        }
-    }
     #else
     public func map<NewSuccess>(
         _ transform: @Sendable @escaping (Success) async -> NewSuccess
     ) -> AsyncResult<NewSuccess, Failure> {
-        AsyncResult<NewSuccess, Failure> {
+        AsyncResult<NewSuccess, Failure> { () async throws(Failure) -> NewSuccess in
             let value = try await value
             return await transform(value)
         }
@@ -345,7 +397,7 @@ extension AsyncResult {
             }
         })
     }
-    #elseif compiler(>=6.0)
+    #else
     public func flatMap<NewSuccess>(
         _ transform: @Sendable @escaping (Success) async -> Result<NewSuccess, Failure>
     ) -> AsyncResult<NewSuccess, Failure> {
@@ -355,19 +407,6 @@ extension AsyncResult {
                 return await transform(value)
             } catch {
                 return .failure(error)
-            }
-        })
-    }
-    #else
-    public func flatMap<NewSuccess>(
-        _ transform: @Sendable @escaping (Success) async -> Result<NewSuccess, Failure>
-    ) -> AsyncResult<NewSuccess, Failure> {
-        AsyncResult<NewSuccess, Failure>(async: {
-            do {
-                let value = try await value
-                return await transform(value)
-            } catch {
-                return .failure(error as! Failure)
             }
         })
     }
@@ -405,7 +444,7 @@ extension AsyncResult {
             }
         }
     }
-    #elseif compiler(>=6.0)
+    #else
     public func mapError<NewFailure>(
         _ transform: @Sendable @escaping (Failure) async -> NewFailure
     ) -> AsyncResult<Success, NewFailure> {
@@ -414,18 +453,6 @@ extension AsyncResult {
                 return try await value
             } catch {
                 throw await transform(error)
-            }
-        }
-    }
-    #else
-    public func mapError<NewFailure>(
-        _ transform: @Sendable @escaping (Failure) async -> NewFailure
-    ) -> AsyncResult<Success, NewFailure> {
-        AsyncResult<Success, NewFailure> {
-            do {
-                return .success(try await value)
-            } catch {
-                return .failure(await transform(error as! Failure))
             }
         }
     }
@@ -444,7 +471,7 @@ extension AsyncResult {
             }
         })
     }
-    #elseif compiler(>=6.0)
+    #else
     public func flatMapError<NewFailure>(
         _ transform: @Sendable @escaping (Failure) async -> Result<Success, NewFailure>
     ) -> AsyncResult<Success, NewFailure> {
@@ -453,18 +480,6 @@ extension AsyncResult {
                 return .success(try await value)
             } catch {
                 return await transform(error)
-            }
-        })
-    }
-    #else
-    public func flatMapError<NewFailure>(
-        _ transform: @Sendable @escaping (Failure) async -> Result<Success, NewFailure>
-    ) -> AsyncResult<Success, NewFailure> {
-        AsyncResult<Success, NewFailure>(async: {
-            do {
-                return .success(try await value)
-            } catch {
-                return await transform(error as! Failure)
             }
         })
     }
