@@ -78,6 +78,7 @@ public actor DeferredContinuation<
     /// - Warning: A continuation must be resumed _exactly_ once. If a continuation is resumed a second time, it'll immediately trap at runtime.
     /// - SeeAlso: The ``name`` assigned to the continuation.
     /// - Parameter result: The result that should be returned when ``future`` is read.
+    #if compiler(>=6.0)
     public nonisolated func resume(with result: sending Result<Success, Failure>) {
         let continuations = lock.withLock {
             switch state {
@@ -92,10 +93,27 @@ public actor DeferredContinuation<
             continuation.resume(with: result)
         }
     }
+    #else
+    public nonisolated func resume(with result: Result<Success, Failure>) {
+        let continuations = lock.withLock {
+            switch state {
+            case .pending(let continuations):
+                state = .fulfilled(result)
+                return continuations
+            case .fulfilled:
+                fatalError("\(name) was resumed more than once.")
+            }
+        }
+        for continuation in continuations {
+            continuation.resume(with: result)
+        }
+    }
+    #endif
     
     /// The future value associated with the continuation.
     ///
     /// If the continuation has been fulfilled, the value is immediately available without suspending.
+    #if compiler(>=6.0)
     public nonisolated var future: Future<Success, Failure> {
         AsyncResult.cached { [self] () async throws(Failure) -> Success in
             /// Lock around reading and updating state across the continuation boundary.
@@ -123,6 +141,35 @@ public actor DeferredContinuation<
             }
         }
     }
+    #else
+    public nonisolated var future: Future<Success, Failure> {
+        AsyncResult.cached { [self] in
+            /// Lock around reading and updating state across the continuation boundary.
+            lock.unsafeLock()
+            switch state {
+            case .pending(let continuations):
+                do {
+                    #if DEBUG
+                    return try await withCheckedThrowingContinuation { continuation in
+                        state = .pending(continuations + [continuation])
+                        lock.unsafeUnlock()
+                    }
+                    #else
+                    return try await withUnsafeThrowingContinuation { continuation in
+                        state = .pending(continuations + [continuation])
+                        lock.unsafeUnlock()
+                    }
+                    #endif
+                } catch {
+                    throw error as! Failure
+                }
+            case .fulfilled(let success):
+                lock.unsafeUnlock()
+                return try success.get()
+            }
+        }
+    }
+    #endif
 }
 
 extension DeferredContinuation where Success == Void {
