@@ -54,6 +54,8 @@ targets: [
 
 ### Locks
 
+`UnfairLock` is available on all platforms regardless of Swift StandardLibrary availability.
+
 ```swift
 import QuestionableConcurrency
 
@@ -72,15 +74,17 @@ class MyClass: @unchecked Sendable {
 
 ### Promises and Futures
 
+`Promise` and `Future` (aka `AsyncResult`) allow for more traditional asynchronous data handling in a structured concurrency world. `Promise` provides additional safety by ensuring it is never resumed twice, and will trap at runtime in the active call site if it is never actually resumed.
+
 ```swift
 import QuestionableConcurrency
 
 actor MyActor {
-    var actorStartFuture: Future<Void, Never>
+    var actorStartResult: AsyncResult<Void, Never>
     
     init() {
         let actorStartPromise = Promise(name: "Actor Start", of: Void.self, throws: Never.self)
-            actorStartFuture = actorStartPromise.future
+        actorStartResult = actorStartPromise.future
         Task {
             actorStartPromise.resume()
         }
@@ -91,6 +95,8 @@ actor MyActor {
     }
 }
 ```
+
+For the extra brave, `AsyncResult` and `DeferredContinuation`, on which `Promise` and `Future` are based on, can be used directly if desired.
 
 ## What is `QuestionableConcurrency`?
 
