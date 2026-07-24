@@ -40,7 +40,10 @@ targets: [
         name: "MyPackage",
         dependencies: [
             ...
-            "QuestionableConcurrency", // <- Use the dependency here.
+            .product(
+                name: "QuestionableConcurrency",
+                package: "swift-questionable-concurrency"
+            ), // <- Use the dependency here.
             ...
         ]
     )
