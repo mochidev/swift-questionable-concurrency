@@ -170,6 +170,42 @@ extension AsyncResult {
 }
 
 extension AsyncResult {
+    /// Initialize an asynchronous value or result with the returned value or thrown error of a closure that is immediately run as part of the current isolation context.
+    /// 
+    /// This variation is useful when you want to evaluate `body` immediately, but still want to provide an async result to consumers.
+    ///
+    /// - SeeAlso: ``AsyncResult``
+    /// - Parameter actor: The isolation context to run the reciever on.
+    /// - Parameter body: The asynchronous closure that either returns a successful value, or throws an error that will be captured.
+    /// - Returns: An initialized async result that will immidiately continue when evaluated.
+    public static func immediate(
+        isolation actor: isolated (any Actor)? = #isolation,
+        catching body: () async throws(Failure) -> Success
+    ) async -> Self {
+        do {
+            return try await .init(.success(body()))
+        } catch {
+            return .init(.failure(error))
+        }
+    }
+    
+    /// Initialize an asynchronous value or result with the returned result of a closure that is immediately run as part of the current isolation context.
+    ///
+    /// This variation is useful when you want to evaluate `resultProducer`  immediately, but still want to provide an async result to consumers.
+    ///
+    /// - SeeAlso: ``AsyncResult``
+    /// - Parameter actor: The isolation context to run the reciever on.
+    /// - Parameter resultProducer: The closure that asynchronously returns a result.
+    /// - Returns: An initialized async result that will immidiately continue when evaluated.
+    public static func immediate(
+        isolation actor: isolated (any Actor)? = #isolation,
+        async resultProducer: () async -> Result<Success, Failure>
+    ) async -> Self {
+        .init(await resultProducer())
+    }
+}
+
+extension AsyncResult {
     /// Await the value of an asynchronous result, or throw an error if the result ended in failure.
     ///
     /// If the result has been fulfilled, the value is immediately available without suspending.
