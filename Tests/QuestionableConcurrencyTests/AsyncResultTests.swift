@@ -248,6 +248,97 @@ import Testing
         #expect(count == 1)
     }
     
+    // MARK: - Immediate Tests
+    
+    @Test func testImmediateFulfillment() async throws {
+        var counter = 0
+        let asyncResult = await AsyncResult.immediate {
+            counter += 1
+            _ = try? await Task.sleep(for: .seconds(0.0001))
+        }
+        #expect(counter == 1)
+        await asyncResult.yield()
+        await asyncResult.yield()
+        await asyncResult.yield()
+        #expect(counter == 1)
+    }
+    
+    @Test func testImmediateThrowingFulfillment() async throws {
+        var counter = 0
+        let asyncResult = await AsyncResult.immediate {
+            counter += 1
+            try? await Task.sleep(for: .seconds(0.0001))
+            throw TestError()
+        }
+        #expect(counter == 1)
+        await #expect(throws: TestError.self) {
+            try await asyncResult.yield()
+        }
+        await #expect(throws: TestError.self) {
+            try await asyncResult.yield()
+        }
+        await #expect(throws: TestError.self) {
+            try await asyncResult.yield()
+        }
+        #expect(counter == 1)
+    }
+    
+    @Test func testImmediateTypedThrowingFulfillment() async throws {
+        var counter = 0
+        let asyncResult = await AsyncResult.immediate { () throws(TestError) -> Never in
+            counter += 1
+            try? await Task.sleep(for: .seconds(0.0001))
+            throw TestError()
+        }
+        #expect(counter == 1)
+        #expect(await asyncResult.result == .failure(TestError()))
+        #expect(await asyncResult.result == .failure(TestError()))
+        #expect(await asyncResult.result == .failure(TestError()))
+        #expect(counter == 1)
+    }
+    
+    @Test func testImmediateSuccess() async throws {
+        var counter = 0
+        let asyncResult = await AsyncResult.immediate {
+            counter += 1
+            try? await Task.sleep(for: .seconds(0.0001))
+            return 0
+        }
+        #expect(counter == 1)
+        #expect(await asyncResult.value == 0)
+        #expect(await asyncResult.value == 0)
+        #expect(await asyncResult.value == 0)
+        #expect(counter == 1)
+    }
+    
+    @Test func testImmediateThrowingSuccess() async throws {
+        var counter = 0
+        let asyncResult = await AsyncResult<_, TestError>.immediate {
+            counter += 1
+            try? await Task.sleep(for: .seconds(0.0001))
+            return 0
+        }
+        #expect(counter == 1)
+        #expect(try await asyncResult.value == 0)
+        #expect(try await asyncResult.value == 0)
+        #expect(try await asyncResult.value == 0)
+        #expect(counter == 1)
+    }
+    
+    @Test func testImmediateResult() async throws {
+        var counter = 0
+        let asyncResult = await AsyncResult<_, Never>.immediate {
+            counter += 1
+            try? await Task.sleep(for: .seconds(0.0001))
+            return .success(0)
+        }
+        #expect(counter == 1)
+        #expect(await asyncResult.result == .success(0))
+        #expect(await asyncResult.result == .success(0))
+        #expect(await asyncResult.result == .success(0))
+        #expect(counter == 1)
+    }
+    
     // MARK: - Cancellation Tests
     
     @Test func testCancellationPropagation() async throws {
