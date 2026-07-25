@@ -29,11 +29,40 @@ public struct AsyncResult<
     Success: Sendable,
     Failure: Error
 >: Sendable {
-    /// The internal producer that vends the value as soon as it is unsuspended by its associated promise.
     #if compiler(>=6.2)
-    let valueProducer: nonisolated(nonsending) @Sendable () async throws(Failure) -> Success
+    /// An async closure type for producing values.
+    public typealias AsyncValueProducer = nonisolated(nonsending) @Sendable () async throws(Failure) -> Success
+    /// An async closure type for producing results.
+    public typealias AsyncResultProducer = nonisolated(nonsending) @Sendable () async -> Result<Success, Failure>
     #else
-    let valueProducer: @Sendable () async throws(Failure) -> Success
+    /// An async closure type for producing values.
+    public typealias AsyncValueProducer = @Sendable () async throws(Failure) -> Success
+    /// An async closure type for producing results.
+    public typealias AsyncResultProducer = @Sendable () async -> Result<Success, Failure>
+    #endif
+    
+    #if compiler(>=6.1)
+    enum ValueProducer: Sendable {
+        /// A value producer that immediate provides access to the result.
+        case sync(Result<Success, Failure>)
+        /// A value producer that suspends while the result is being produced.
+        case async(AsyncValueProducer)
+        
+        func callAsFunction() async throws(Failure) -> Success {
+            switch self {
+            case .sync(let result):     try result.get()
+            case .async(let producer):  try await producer()
+            }
+        }
+    }
+    #endif
+    
+    /// The internal producer that vends the value as soon as it is unsuspended by its associated promise.
+    #if compiler(>=6.1)
+    let valueProducer: ValueProducer
+    #else
+    /// - Note: Swift 6.0 trips on itself in Promise because of ValueProducer, so fall back to always using a closure.
+    let valueProducer: AsyncValueProducer
     #endif
     
     /// Initialize an asynchronous value or result with the returned value or thrown error of a closure.
@@ -42,15 +71,13 @@ public struct AsyncResult<
     /// - SeeAlso: ``AsyncResult``
     /// - Parameter body: The asynchronous closure that either returns a successful value, or throws an error that will be captured.
     /// - Returns: An initialized async result that will await `body` when evaluated.
-    #if compiler(>=6.2)
-    public init(catching body: nonisolated(nonsending) @Sendable @escaping () async throws(Failure) -> Success) {
+    public init(catching body: @escaping AsyncValueProducer) {
+        #if compiler(>=6.1)
+        self.valueProducer = .async(body)
+        #else
         self.valueProducer = body
+        #endif
     }
-    #else
-    public init(catching body: @Sendable @escaping () async throws(Failure) -> Success) {
-        self.valueProducer = body
-    }
-    #endif
 }
 
 extension AsyncResult {
@@ -60,28 +87,24 @@ extension AsyncResult {
     /// - SeeAlso: ``AsyncResult``
     /// - Parameter resultProducer: The closure that asynchronously returns a result.
     /// - Returns: An initialized async result that will await `resultProducer` when evaluated.
-    #if compiler(>=6.2)
-    public init(async resultProducer: nonisolated(nonsending) @Sendable @escaping () async -> Result<Success, Failure>) {
+    public init(async resultProducer: @escaping AsyncResultProducer) {
         self.init { () async throws(Failure) -> Success in
             try await resultProducer().get()
         }
     }
-    #else
-    public init(async resultProducer: @Sendable @escaping () async -> Result<Success, Failure>) {
-        self.init { () async throws(Failure) -> Success in
-            try await resultProducer().get()
-        }
-    }
-    #endif
     
     /// Initialize an asynchronous value or result with a synchronous ``/Swift/Result``.
     ///
     /// - SeeAlso: ``AsyncResult``
     /// - Parameter result: The result to wrap.
     public init(_ result: Result<Success, Failure>) {
+        #if compiler(>=6.1)
+        self.valueProducer = .sync(result)
+        #else
         self.init { () throws(Failure) -> Success in
             try result.get()
         }
+        #endif
     }
     
     /// A success, storing a `Success` value.
@@ -122,8 +145,7 @@ extension AsyncResult {
     /// - SeeAlso: ``AsyncResult``
     /// - Parameter body: The asynchronous closure that either returns a successful value, or throws an error that will be captured.
     /// - Returns: An initialized async result that will await the result if not ready, or immediately return it when evaluated.
-    #if compiler(>=6.2)
-    public static func cached(catching body: nonisolated(nonsending) @Sendable @escaping () async throws(Failure) -> Success) -> Self {
+    public static func cached(catching body: @escaping AsyncValueProducer) -> Self {
         let task = Task { try await body() }
         return .init { () async throws(Failure) -> Success in
             do {
@@ -133,18 +155,6 @@ extension AsyncResult {
             }
         }
     }
-    #else
-    public static func cached(catching body: @Sendable @escaping () async throws(Failure) -> Success) -> Self {
-        let task = Task { try await body() }
-        return .init { () async throws(Failure) -> Success in
-            do {
-                return try await task.value
-            } catch {
-                throw error as! Failure
-            }
-        }
-    }
-    #endif
     
     /// Initialize an asynchronous value or result with the returned result of a closure, and immediately start caching the results.
     ///
@@ -154,19 +164,11 @@ extension AsyncResult {
     /// - SeeAlso: ``AsyncResult``
     /// - Parameter resultProducer: The closure that asynchronously returns a result.
     /// - Returns: An initialized async result that will await the result if not ready, or immediately return it when evaluated.
-    #if compiler(>=6.2)
-    public static func cached(async resultProducer: nonisolated(nonsending) @Sendable @escaping () async -> Result<Success, Failure>) -> Self {
+    public static func cached(async resultProducer: @escaping AsyncResultProducer) -> Self {
         self.cached { () async throws(Failure) -> Success in
             try await resultProducer().get()
         }
     }
-    #else
-    public static func cached(async resultProducer: @Sendable @escaping () async -> Result<Success, Failure>) -> Self {
-        self.cached { () async throws(Failure) -> Success in
-            try await resultProducer().get()
-        }
-    }
-    #endif
 }
 
 extension AsyncResult {
@@ -245,24 +247,10 @@ extension AsyncResult {
     #endif
 }
 
-extension AsyncResult where Failure == Never {
-    /// Await the value of an asynchronous result.
-    public var value: Success {
-        get async { await valueProducer() }
-    }
-}
-
 extension AsyncResult where Success == Void {
     /// Suspend the current task until the async result is fulfilled.
     public func yield() async throws(Failure) {
         try await value
-    }
-}
-
-extension AsyncResult where Success == Void, Failure == Never {
-    /// Suspend the current task until the async result is fulfilled.
-    public func yield() async {
-        await value
     }
 }
 
