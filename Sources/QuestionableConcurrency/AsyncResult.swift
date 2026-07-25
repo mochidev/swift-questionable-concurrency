@@ -41,6 +41,7 @@ public struct AsyncResult<
     /// - Important: If a task reading a ``value-5r346`` is cancelled, cancellation will propagate into the `body` block provided here for that read operation.
     /// - SeeAlso: ``AsyncResult``
     /// - Parameter body: The asynchronous closure that either returns a successful value, or throws an error that will be captured.
+    /// - Returns: An initialized async result that will await `body` when evaluated.
     #if compiler(>=6.2)
     public init(catching body: nonisolated(nonsending) @Sendable @escaping () async throws(Failure) -> Success) {
         self.valueProducer = body
@@ -58,6 +59,7 @@ extension AsyncResult {
     /// - Important: If a task reading a ``value-5r346`` is cancelled, cancellation will propagate into the `resultProducer` block provided here for that read operation.
     /// - SeeAlso: ``AsyncResult``
     /// - Parameter resultProducer: The closure that asynchronously returns a result.
+    /// - Returns: An initialized async result that will await `resultProducer` when evaluated.
     #if compiler(>=6.2)
     public init(async resultProducer: nonisolated(nonsending) @Sendable @escaping () async -> Result<Success, Failure>) {
         self.init { () async throws(Failure) -> Success in
@@ -114,11 +116,12 @@ extension AsyncResult where Success == Never {
 extension AsyncResult {
     /// Initialize an asynchronous value or result with the returned value or thrown error of a closure, and immediately start caching the results.
     ///
-    /// This variation may be useful when you don't want to hold a reference to the `body` closure being passed in.
+    /// This variation may be useful when you don't want to hold a reference to the `body` closure being passed in, or otherwise want to ensure `body` is only called once.
     ///
     /// - Important: Unlike ``init(catching:)``, cancelling a task while reading ``value-5r346`` will **not** propagate into the `body` block provided here.
     /// - SeeAlso: ``AsyncResult``
     /// - Parameter body: The asynchronous closure that either returns a successful value, or throws an error that will be captured.
+    /// - Returns: An initialized async result that will await the result if not ready, or immediately return it when evaluated.
     #if compiler(>=6.2)
     public static func cached(catching body: nonisolated(nonsending) @Sendable @escaping () async throws(Failure) -> Success) -> Self {
         let task = Task { try await body() }
@@ -143,13 +146,14 @@ extension AsyncResult {
     }
     #endif
     
-    /// Initialize an asynchronous value or result with the returned value or thrown error of a closure, and immediately start caching the results.
+    /// Initialize an asynchronous value or result with the returned result of a closure, and immediately start caching the results.
     ///
-    /// This variation may be useful when you don't want to hold a reference to the `body` closure being passed in.
+    /// This variation may be useful when you don't want to hold a reference to the `resultProducer` closure being passed in, or otherwise want to ensure `resultProducer` is only called once.
     ///
     /// - Important: Unlike ``init(catching:)``, cancelling a task while reading ``value-5r346`` will **not** propagate into the `resultProducer` block provided here.
     /// - SeeAlso: ``AsyncResult``
     /// - Parameter resultProducer: The closure that asynchronously returns a result.
+    /// - Returns: An initialized async result that will await the result if not ready, or immediately return it when evaluated.
     #if compiler(>=6.2)
     public static func cached(async resultProducer: nonisolated(nonsending) @Sendable @escaping () async -> Result<Success, Failure>) -> Self {
         self.cached { () async throws(Failure) -> Success in
