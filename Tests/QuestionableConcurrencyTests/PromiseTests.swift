@@ -45,11 +45,14 @@ import Testing
     
     @Test func happySuccessWriteFirst() async throws {
         let promise = Promise(name: "Test", of: Int.self)
-        let future = promise.future
+        var future = promise.future
         
         #expect(promise.name == "Test")
         promise.resume(with: .success(0))
         #expect(await future.result == .success(0))
+        
+        /// [#15](https://github.com/mochidev/swift-questionable-concurrency/issues/15) Swift 6.3.3 crashes unless future is manually copied out of the promise in release mode — it seems the compiler fails to do this in all circumstances, such as in this test.
+        future = .success(0)
     }
     
     @Test func happyFailureReadFirst() async throws {
@@ -84,11 +87,14 @@ import Testing
     
     @Test func happyFailureWriteFirst() async throws {
         let promise = Promise(name: "Test", alwaysThrows: TestError.self)
-        let future = promise.future
+        var future = promise.future
         
         #expect(promise.name == "Test")
         promise.resume(with: .failure(TestError()))
         #expect(await future.result == .failure(TestError()))
+        
+        /// [#15](https://github.com/mochidev/swift-questionable-concurrency/issues/15) Swift 6.3.3 crashes unless future is manually copied out of the promise in release mode — it seems the compiler fails to do this in all circumstances, such as in this test.
+        future = .failure(TestError())
     }
     
     @Test func automaticDebugName() async throws {

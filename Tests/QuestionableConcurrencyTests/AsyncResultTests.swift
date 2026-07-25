@@ -49,6 +49,15 @@ import Testing
         #expect(try await asyncResult.value == 0)
     }
     
+    @Test func testInstantThrowingFailure() async throws {
+        let asyncResult = AsyncResult { () throws(TestError) -> Int in
+            throw TestError()
+        }
+        await #expect(throws: TestError.self) {
+            try await asyncResult.value
+        }
+    }
+    
     @Test func testInstantResult() async throws {
         let asyncResult = AsyncResult<_, Never> { .success(0) }
         #expect(await asyncResult.result == .success(0))
